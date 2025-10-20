@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>GuestTap — Welcome</title>
+<meta name="description" content="GuestTap: quick access to Wi-Fi and house info. Tap the NFC tag or scan the QR code." />
+<style>
+  :root{--bg:#f7fafc;--card:#ffffff;--accent:#0b7285;--muted:#6b7280}
+  body{font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0;background:var(--bg);color:#0f172a}
+  .container{max-width:760px;margin:36px auto;padding:20px}
+  header{display:flex;align-items:center;gap:12px}
+  .logo{width:56px;height:56px;border-radius:8px;background:linear-gradient(135deg,#0b7285,#6dd3d5);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:20px}
+  .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(15,23,42,0.06);margin-top:18px}
+  h1{margin:0;font-size:20px}
+  p.lead{margin:8px 0 0;color:var(--muted)}
+  .wifi{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  .field{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;border:1px solid #eef2f7;background:#fbfdff}
+  .label{font-size:13px;color:var(--muted)}
+  .value{font-weight:600;word-break:break-all}
+  button.btn{background:var(--accent);color:white;border:none;padding:10px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+  .secondary{background:transparent;border:1px solid #e6eef0;color:inherit}
+  .notes{margin-top:12px;color:#0f172a}
+  .muted-small{font-size:13px;color:var(--muted)}
+  footer{margin-top:18px;font-size:13px;color:var(--muted);text-align:center}
+  @media(min-width:700px){ .wifi{flex-direction:row;gap:12px} .field{flex:1} }
+  .hidden{display:none}
+  .qr{margin-top:12px;text-align:center}
+  input.small{border:1px solid #e6eef0;padding:8px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">GT</div>
+    <div>
+      <h1>GuestTap</h1>
+      <p class="lead">Welcome! Tap the NFC tag or scan the QR code to open this page.</p>
+    </div>
+  </header>
+
+  <div id="mainCard" class="card" role="main" aria-live="polite">
+    <div id="welcome">
+      <p class="muted-small">Property:</p>
+      <h2 id="propName">Loading…</h2>
+    </div>
+
+    <div id="notFoundCard" class="card hidden">
+      <p class="muted-small">This property ID is unknown for the pilot. You can still use the default guest info below.</p>
+    </div>
+
+    <div class="wifi" id="wifiBlock">
+      <div class="field" aria-label="Wi-Fi network">
+        <div>
+          <div class="label">Network (SSID)</div>
+          <div id="ssid" class="value">—</div>
+        </div>
+        <div style="text-align:right">
+          <button id="copySsid" class="btn secondary">Copy</button>
+        </div>
+      </div>
+
+      <div class="field" aria-label="Wi-Fi password">
+        <div>
+          <div class="label">Password</div>
+          <div id="password" class="value">—</div>
+          <div class="muted-small">Tap to reveal or copy</div>
+        </div>
+        <div style="text-align:right">
+          <button id="revealBtn" class="btn">Reveal</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="label">House info</div>
+      <div id="houseNotes" class="muted-small">—</div>
+    </div>
+
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button id="showRules" class="btn secondary">House Rules</button>
+      <a id="hostContact" href="tel:" class="btn">Contact Host</a>
+    </div>
+
+    <div class="qr">
+      <p class="muted-small">If NFC didn't open the page, scan or visit:</p>
+      <input id="directUrl" class="small" readonly />
+      <div style="margin-top:8px" id="qrImage"></div>
+    </div>
+  </div>
+
+  <footer>GuestTap • Pilot version</footer>
+</div>
+
+<script>
+/* ======= Pilot property mapping: update these entries for each property =======
+   Later you'll replace with a dynamic fetch to your backend using property token.
+*/
+const properties = {
+  "PROPERTY123": {
+    name: "Brown Villas — Apt 5",
+    ssid: "ATTMCa7wy4",
+    password: "s=gkq62#+243",
+    notes: "Check-out 11 AM. Please remove shoes inside. Parking: spot #4.",
+    phone: "+12568984613",
+  },
+  "DEMO1": {
+    name: "Demo Suite",
+    ssid: "DemoWiFi",
+    password: "demo-guest",
+    notes: "Demo property for testing. No loud music after 10pm.",
+    phone: "+10000000000",
+  }
+};
+
+/* ======== Utilities ======== */
+function getParam(name){
+  const u = new URL(window.location.href);
+  return u.searchParams.get(name);
+}
+function el(id){return document.getElementById(id);}
+
+/* ======== Init ======== */
+const p = getParam('p') || 'DEMO1'; // fallback to demo property if none provided
+const prop = properties[p];
+const propNameEl = el('propName');
+const ssidEl = el('ssid');
+const pwdEl = el('password');
+const houseNotesEl = el('houseNotes');
+const hostContact = el('hostContact');
+const directUrl = el('directUrl');
+
+if(!prop){
+  propNameEl.textContent = p + " (unknown)";
+  document.getElementById('notFoundCard').classList.remove('hidden');
+  // show safe default (you can change)
+  ssidEl.textContent = "GuestTap_WiFi";
+  pwdEl.textContent = "guesttap-default";
+  houseNotesEl.textContent = "No property-specific notes found. Please contact host.";
+  hostContact.href = "tel:";
+} else {
+  propNameEl.textContent = prop.name;
+  ssidEl.textContent = prop.ssid;
+  // hide password until reveal clicked
+  pwdEl.textContent = "••••••••";
+  pwdEl.dataset.raw = prop.password;
+  houseNotesEl.textContent = prop.notes;
+  hostContact.href = "tel:" + prop.phone;
+}
+
+/* direct URL for printing */
+directUrl.value = window.location.href;
+
+/* Reveal & copy behaviour */
+el('revealBtn').addEventListener('click', () => {
+  const raw = pwdEl.dataset.raw || pwdEl.textContent;
+  // toggle
+  if(pwdEl.textContent.startsWith('•')){
+    pwdEl.textContent = raw;
+    el('revealBtn').textContent = 'Copy';
+  } else {
+    navigator.clipboard && navigator.clipboard.writeText(raw).then(()=> {
+      el('revealBtn').textContent = 'Copied!';
+      setTimeout(()=> el('revealBtn').textContent = 'Reveal', 1400);
+    }, ()=> {
+      el('revealBtn').textContent = 'Copy';
+    });
+  }
+});
+
+/* copy SSID */
+el('copySsid').addEventListener('click', ()=> {
+  const text = ssidEl.textContent;
+  navigator.clipboard && navigator.clipboard.writeText(text).then(()=> {
+    el('copySsid').textContent = 'Copied!';
+    setTimeout(()=> el('copySsid').textContent = 'Copy', 1200);
+  });
+});
+
+/* Show rules (example modal behaviour) */
+el('showRules').addEventListener('click', ()=>{
+  alert("House rules:\\n• No smoking inside\\n• Quiet after 10pm\\n• Dispose trash in bins");
+});
+
+/* Generate a simple QR image using Google Chart API (works for dev printing) */
+/* Note: using Google Chart API URL is a trivial way to produce a printable QR for pilot */
+const qrDiv = el('qrImage');
+const qrUrl = encodeURIComponent(window.location.href);
+const qrImg = document.createElement('img');
+qrImg.alt = 'QR code';
+qrImg.width = 140;
+qrImg.height = 140;
+qrImg.src = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${qrUrl}&chld=L|1`;
+qrDiv.appendChild(qrImg);
+
+</script>
+</body>
+</html>
